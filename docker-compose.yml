@@ -1,0 +1,12 @@
+services:
+  web:
+    build: .
+    command: >
+      gunicorn myweb.wsgi:application --bind 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    working_dir: /app
+    volumes:
+      - .:/app
+       - ./dashboard/static:/app/dashboard/static
+    restart: always 
