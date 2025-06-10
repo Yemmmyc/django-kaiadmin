@@ -45,23 +45,26 @@ pipeline {
 
                     echo "🚀 Deploying to EC2: ${EC2_HOST}"
                     script {
+                        // Create a shell script with remote commands
                         def remoteScript = """
-                            echo ${DOCKERHUB_PASS} | docker login -u ${DOCKERHUB_USER} --password-stdin && \
-                            docker pull ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} && \
-                            docker stop ${IMAGE_NAME} || : && \
-                            docker rm ${IMAGE_NAME} || : && \
+                            echo ${DOCKERHUB_PASS} | docker login -u ${DOCKERHUB_USER} --password-stdin
+                            docker pull ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}
+                            docker stop ${IMAGE_NAME} || :
+                            docker rm ${IMAGE_NAME} || :
                             docker run -d --name ${IMAGE_NAME} -p 80:80 ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}
+                        """.stripIndent()
+
+                        writeFile file: 'remote-deploy.sh', text: remoteScript
+
+                        // Upload the script to EC2
+                        bat """
+                            ${GIT_BASH} "scp -o StrictHostKeyChecking=no -i ${PRIVATE_KEY_PATH} remote-deploy.sh ${EC2_USER}@${EC2_HOST}:/home/${EC2_USER}/remote-deploy.sh"
                         """
 
-                        // Escape double quotes in the script to preserve it inside bash -c
-                        def remoteScriptEscaped = remoteScript.replace("\"", "\\\"")
-
-                        // Use double quotes to wrap the command to avoid EOF errors
-                        def sshCommand = """
-                            ${GIT_BASH} "ssh -o StrictHostKeyChecking=no -i ${PRIVATE_KEY_PATH} ${EC2_USER}@${EC2_HOST} \\\"${remoteScriptEscaped}\\\""
-                        """.stripIndent().trim()
-
-                        bat sshCommand
+                        // Execute the uploaded script
+                        bat """
+                            ${GIT_BASH} "ssh -o StrictHostKeyChecking=no -i ${PRIVATE_KEY_PATH} ${EC2_USER}@${EC2_HOST} 'bash /home/${EC2_USER}/remote-deploy.sh'"
+                        """
                     }
                 }
             }
@@ -70,11 +73,12 @@ pipeline {
 
     post {
         failure {
-            echo '❌ Deployment failed. Check the logs above.'
+            echo "❌ Deployment failed. Check the logs above."
         }
         success {
-            echo "✅ Deployment of ${IMAGE_NAME}:${IMAGE_TAG} was successful!"
+            echo "✅ Deployment completed successfully."
         }
     }
 }
+
 
