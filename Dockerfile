@@ -1,23 +1,36 @@
-# Use official Python image
-FROM python:3.11
+## Use official Python image
+FROM python:3.11-slim
 
-# Set working directory inside container
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Set working directory
 WORKDIR /app
 
-# Install dependencies
+# Install system dependencies (for psycopg2 or Pillow support)
+RUN apt-get update -o Acquire::http::Pipeline-Depth=0 && \
+    apt-get install -y apt-transport-https ca-certificates && \
+    apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the project files
+# Copy project files
 COPY . .
 
-# Create staticfiles directory
-RUN mkdir -p /app/staticfiles
+# Create staticfiles directory and collect static files
+RUN mkdir -p /app/staticfiles && \
+    python manage.py collectstatic --noinput
 
-# Collect static files
-RUN python manage.py collectstatic --noinput
+# Expose port
+EXPOSE 8000
 
-# Run the Django app
+# Start Gunicorn server
 CMD ["gunicorn", "myweb.wsgi:application", "--bind", "0.0.0.0:8000"]
 
-EXPOSE 8000
