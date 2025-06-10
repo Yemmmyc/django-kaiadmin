@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         EC2_USER = 'ec2-user'
-        EC2_HOST = '44.203.147.18' // Use dots, not dashes
+        EC2_HOST = '44.203.147.18'
         PRIVATE_KEY_PATH = 'C:/Users/IT-WORKSTATION/Downloads/aws-electricaa.pem'
         IMAGE_NAME = 'django-kaiadmin'
         IMAGE_TAG = "build-${env.BUILD_NUMBER}"
@@ -48,15 +48,17 @@ pipeline {
                         def remoteScript = """
                             echo ${DOCKERHUB_PASS} | docker login -u ${DOCKERHUB_USER} --password-stdin && \
                             docker pull ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} && \
-                            docker stop ${IMAGE_NAME} || true && \
-                            docker rm ${IMAGE_NAME} || true && \
+                            docker stop ${IMAGE_NAME} || : && \
+                            docker rm ${IMAGE_NAME} || : && \
                             docker run -d --name ${IMAGE_NAME} -p 80:80 ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}
                         """
 
-                        def escapedScript = remoteScript.replace("'", "'\\''")
+                        // Escape double quotes in the script to preserve it inside bash -c
+                        def remoteScriptEscaped = remoteScript.replace("\"", "\\\"")
 
+                        // Use double quotes to wrap the command to avoid EOF errors
                         def sshCommand = """
-                            ${GIT_BASH} "ssh -o StrictHostKeyChecking=no -i '${PRIVATE_KEY_PATH}' ${EC2_USER}@${EC2_HOST} '${escapedScript}'"
+                            ${GIT_BASH} "ssh -o StrictHostKeyChecking=no -i ${PRIVATE_KEY_PATH} ${EC2_USER}@${EC2_HOST} \\\"${remoteScriptEscaped}\\\""
                         """.stripIndent().trim()
 
                         bat sshCommand
@@ -65,4 +67,14 @@ pipeline {
             }
         }
     }
+
+    post {
+        failure {
+            echo '❌ Deployment failed. Check the logs above.'
+        }
+        success {
+            echo "✅ Deployment of ${IMAGE_NAME}:${IMAGE_TAG} was successful!"
+        }
+    }
 }
+
