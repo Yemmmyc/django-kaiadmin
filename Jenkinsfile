@@ -5,7 +5,7 @@ pipeline {
         EC2_USER = 'ec2-user'
         EC2_HOST = '44-203-147-18'
         PRIVATE_KEY_PATH = 'C:/Users/IT-WORKSTATION/Downloads/aws-electricaa.pem'
-        IMAGE_NAME = 'new-dockerhub-electricaa'
+        IMAGE_NAME = 'yemisi76/django-kaiadmin'
         IMAGE_TAG = "build-${env.BUILD_NUMBER}"
         GIT_REPO = 'https://github.com/Yemmmyc/django-kaiadmin.git'
         BRANCH_NAME = 'main'
